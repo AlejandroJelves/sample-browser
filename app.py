@@ -1,3 +1,5 @@
+from matplotlib import axis
+import numpy as np
 import streamlit as st
 import os
 import librosa as lib
@@ -38,22 +40,42 @@ def sort_supported_audio_files(audio_files):
 def selected_from_sorted_sample_list(sorted_files):
     if sorted_files:
         selected_file = st.selectbox("These files are supported. Choose a sample:", sorted_files)
+        st.write(f"Selected file: {selected_file}")
         return selected_file
+        
     return None
 
 #display wavform
 def display_waveform(selected_file):
+    st.subheader("Waveform")
     y, sr = lib.load(selected_file)
     fig, ax = plt.subplots()
     ax.plot(y)
     ax.set_title("Sample Waveform")
     st.pyplot(fig)
-  
-    
+
+#note detection
+def spectrum_analysis(selected_file):
+    st.subheader("Spectrum Analysis")
+    y, sr = lib.load(selected_file)
+    D = np.abs(lib.stft(y))
+    db_spectrum = lib.amplitude_to_db(D, ref=np.max)
+    avg_spectrum = db_spectrum.mean(axis=1)
+    freqs = lib.fft_frequencies(sr=sr)
+    fig, ax = plt.subplots()
+    ax.semilogx(freqs, avg_spectrum)
+    ax.set(title="Frequency Spectrum", xlabel="Frequency (Hz)", ylabel="Amplitude (dB)")
+    ax.set_xlim([20, sr // 2])  # limit from 20 Hz to Nyquist frequency
+    st.pyplot(fig)
+
 #play selected sample
 def play_sample(selected_file):
+    y, sr = lib.load(selected_file)
+    duration = len(y)/sr
     st.subheader("Play sample")
+    st.write(f"Duration: {duration:.2f} seconds")
     st.audio(selected_file)
+    
 
 #main title       
 st.title("Sample Wizard")
@@ -61,16 +83,16 @@ st.title("Sample Wizard")
 #getting the folder path
 folder_path = get_folder_path()
 
-#logic for scanning and displaying audio files
+#logic main 
 if folder_path and os.path.exists(folder_path):
     audio_files = scan_for_audio_files(folder_path)
     sorted_files = sort_supported_audio_files(audio_files)
 
     selected_file = selected_from_sorted_sample_list(sorted_files)
-    display_waveform(selected_file)
     play_sample(selected_file)
 
-
+    display_waveform(selected_file)
+    spectrum_analysis(selected_file)
 else:
     st.info("Please enter a valid folder path.")
     
